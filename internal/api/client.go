@@ -175,9 +175,13 @@ func (c *Client) makeRequest(method, endpoint string, data []byte) (*http.Respon
 	return resp, err
 }
 
+// maxErrorBodySize caps how much of an error response is read so a
+// misbehaving or hostile endpoint cannot exhaust memory
+const maxErrorBodySize = 1 << 20 // 1 MiB
+
 // handleErrorResponse handles API error responses
 func (c *Client) handleErrorResponse(resp *http.Response) error {
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
 	if err != nil {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)
 	}

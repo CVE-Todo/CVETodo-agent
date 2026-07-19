@@ -239,12 +239,12 @@ var statusConfigCmd = &cobra.Command{
 	},
 }
 
-// maskString masks all but the first and last 4 characters of a string
+// maskString masks all but the last 4 characters of a string
 func maskString(s string) string {
-	if len(s) <= 8 {
+	if len(s) <= 12 {
 		return "****"
 	}
-	return s[:4] + "****" + s[len(s)-4:]
+	return "****" + s[len(s)-4:]
 }
 
 func init() {

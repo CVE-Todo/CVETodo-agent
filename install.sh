@@ -104,7 +104,8 @@ else
         echo ""
         if [ -z "$API_KEY" ]; then
             printf "Enter your CVETodo team API key: "
-            read -r API_KEY < /dev/tty
+            read -rs API_KEY < /dev/tty
+            echo ""
         fi
         if [ -z "$TEAM_ID" ]; then
             printf "Enter your CVETodo team ID: "
@@ -117,7 +118,8 @@ else
         exit 1
     fi
 
-    mkdir -p "$CONFIG_DIR" "$DATA_DIR"
+    mkdir -p "$CONFIG_DIR"
+    mkdir -p -m 700 "$DATA_DIR"
 
     if [ "$OS" = "linux" ]; then
         SCANNERS='    - "dpkg"
@@ -129,6 +131,10 @@ else
     - "npm"'
     fi
 
+    # Create the config with owner-only permissions from the start so the
+    # API key is never world-readable, even briefly (umask scoped to a subshell)
+    (
+    umask 077
     cat > "$CONFIG_FILE" <<EOF
 # CVETodo Agent Configuration
 api:
@@ -151,6 +157,7 @@ scanner:
   enabled_scanners:
 ${SCANNERS}
 EOF
+    )
     chmod 600 "$CONFIG_FILE"
     echo "Configuration written to ${CONFIG_FILE}."
 fi

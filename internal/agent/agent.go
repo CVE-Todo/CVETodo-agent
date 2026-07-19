@@ -199,7 +199,9 @@ func (a *Agent) storeScanReport(systemInfo api.SystemInfo, packages []api.Packag
 	filename := fmt.Sprintf("scan_%s.json", time.Now().Format("20060102_150405"))
 	filepath := filepath.Join(a.config.Agent.DataDir, filename)
 
-	file, err := os.Create(filepath)
+	// Reports contain the full software inventory of this host; keep them
+	// readable only by the agent's user
+	file, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to create report file: %w", err)
 	}
@@ -270,9 +272,11 @@ func (a *Agent) submitStoredReport(filename string) error {
 	return nil
 }
 
-// ensureDataDir creates the data directory if it doesn't exist
+// ensureDataDir creates the data directory if it doesn't exist. The
+// directory holds queued scan reports (full software inventories), so it
+// is restricted to the agent's user.
 func (a *Agent) ensureDataDir() error {
-	return os.MkdirAll(a.config.Agent.DataDir, 0755)
+	return os.MkdirAll(a.config.Agent.DataDir, 0700)
 }
 
 // Stop gracefully stops the agent

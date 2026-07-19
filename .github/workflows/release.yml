@@ -29,19 +29,23 @@ jobs:
           mkdir -p dist/darwin-amd64
           mkdir -p dist/packages
 
+      - name: Set build metadata
+        run: |
+          echo "LDFLAGS=-X main.version=${{ github.ref_name }} -X main.commit=${GITHUB_SHA::7} -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
       - name: Build for Linux
         run: |
-          GOOS=linux GOARCH=amd64 go build -o dist/linux-amd64/cvetodo-agent ./cmd/agent
+          GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/linux-amd64/cvetodo-agent ./cmd/agent
           tar -czf dist/packages/cvetodo-agent-${{ github.ref_name }}-linux-amd64.tar.gz -C dist/linux-amd64 cvetodo-agent
 
       - name: Build for Windows
         run: |
-          GOOS=windows GOARCH=amd64 go build -o dist/windows-amd64/cvetodo-agent.exe ./cmd/agent
+          GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/windows-amd64/cvetodo-agent.exe ./cmd/agent
           cd dist/windows-amd64 && zip -r ../packages/cvetodo-agent-${{ github.ref_name }}-windows-amd64.zip cvetodo-agent.exe
 
       - name: Build for macOS
         run: |
-          GOOS=darwin GOARCH=amd64 go build -o dist/darwin-amd64/cvetodo-agent ./cmd/agent
+          GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/darwin-amd64/cvetodo-agent ./cmd/agent
           tar -czf dist/packages/cvetodo-agent-${{ github.ref_name }}-darwin-amd64.tar.gz -C dist/darwin-amd64 cvetodo-agent
 
       - name: Create Release

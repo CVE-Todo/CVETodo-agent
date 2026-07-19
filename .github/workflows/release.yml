@@ -17,7 +17,9 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          # Build releases with the latest stable (patched) toolchain so
+          # binaries do not ship with known stdlib vulnerabilities
+          go-version: 'stable'
 
       - name: Install dependencies
         run: make deps

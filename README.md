@@ -60,6 +60,24 @@ Download the latest release for your platform from the [releases page](https://g
 binary, and place it on your PATH. Then run `cvetodo-agent config init` followed by
 `cvetodo-agent service install`.
 
+### Verifying releases
+
+The quick-install scripts automatically verify downloads against the `SHA256SUMS`
+file published with each release. If you download binaries manually, you can do
+the same:
+
+```bash
+sha256sum -c --ignore-missing SHA256SUMS
+```
+
+Release artifacts also carry [build provenance attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations)
+proving they were built by this repository's release workflow on GitHub Actions.
+To verify one with the [GitHub CLI](https://cli.github.com/):
+
+```bash
+gh attestation verify cvetodo-agent-<version>-linux-amd64.tar.gz --repo CVE-Todo/CVETodo-agent
+```
+
 ### Build from Source
 
 #### Prerequisites

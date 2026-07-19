@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -23,6 +25,9 @@ jobs:
 
       - name: Install dependencies
         run: make deps
+
+      - name: Verify module integrity
+        run: go mod verify
 
       - name: Create directories
         run: |
@@ -54,6 +59,11 @@ jobs:
         run: |
           cd dist/packages
           sha256sum * > SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/packages/*'
 
       - name: Create Release
         uses: softprops/action-gh-release@v1

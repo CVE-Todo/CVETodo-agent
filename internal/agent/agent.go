@@ -44,6 +44,21 @@ func New(cfg *config.Config, log *logger.Logger) *Agent {
 func (a *Agent) Run() error {
 	a.logger.WithComponent("agent").Info("starting CVETodo agent")
 
+	// If disabled via config, idle without scanning so the service can stay
+	// installed while performing no work until re-enabled
+	if !a.config.Agent.Enabled {
+		a.logger.WithComponent("agent").Warn("agent is disabled (agent.enabled: false); no scans will run until re-enabled")
+
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+		select {
+		case <-a.ctx.Done():
+		case <-sigChan:
+		}
+		return nil
+	}
+
 	// Ensure data directory exists
 	if err := a.ensureDataDir(); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)

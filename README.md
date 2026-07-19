@@ -19,26 +19,46 @@ The source code to the agent is open for anyone to view on Github to ensure tran
 
 ## Installation
 
-### Pre-built Binaries
+### Quick Install (recommended)
 
-Download the latest release for your platform from the [releases page](https://github.com/aecwalker/CVETodo-agent/releases).
-
-#### Linux
-```bash
-wget https://github.com/aecwalker/CVETodo-agent/releases/latest/download/cvetodo-agent-linux-amd64.tar.gz
-tar -xzf cvetodo-agent-linux-amd64.tar.gz
-sudo mv cvetodo-agent /usr/local/bin/
-```
+The install scripts download the latest release, set up your configuration, and register the
+agent as a background service that scans your system **once a day**.
 
 #### Windows
-Download `cvetodo-agent-windows-amd64.zip`, extract, and add to your PATH.
-
-#### macOS
-```bash
-wget https://github.com/aecwalker/CVETodo-agent/releases/latest/download/cvetodo-agent-darwin-amd64.tar.gz
-tar -xzf cvetodo-agent-darwin-amd64.tar.gz
-sudo mv cvetodo-agent /usr/local/bin/
+From an elevated (Administrator) PowerShell prompt:
+```powershell
+irm https://raw.githubusercontent.com/aecwalker/CVETodo-agent/main/install.ps1 | iex
 ```
+
+Non-interactive install:
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/aecwalker/CVETodo-agent/main/install.ps1))) -ApiKey "your-key" -TeamId "your-team"
+```
+
+#### Linux / macOS
+```bash
+curl -fsSL https://raw.githubusercontent.com/aecwalker/CVETodo-agent/main/install.sh | sudo bash
+```
+
+Non-interactive install:
+```bash
+curl -fsSL https://raw.githubusercontent.com/aecwalker/CVETodo-agent/main/install.sh | sudo CVETODO_API_KEY=your-key CVETODO_TEAM_ID=your-team bash
+```
+
+### Turning the agent off
+
+The agent scans daily by default. You can turn it off at any time:
+
+- **CLI**: `cvetodo-agent service stop` (until next boot) or `cvetodo-agent service uninstall` (remove entirely)
+- **Config file**: set `agent.enabled: false` in the configuration file — the service stays installed but performs no scans
+- **GUI/system tools**: stop or disable the "CVETodo Agent" service in `services.msc` (Windows) or with `systemctl stop cvetodo-agent` / `systemctl disable cvetodo-agent` (Linux)
+
+### Manual Install (pre-built binaries)
+
+Download the latest release for your platform from the [releases page](https://github.com/aecwalker/CVETodo-agent/releases)
+(assets are named `cvetodo-agent-<version>-<os>-amd64.tar.gz`, or `.zip` on Windows), extract the
+binary, and place it on your PATH. Then run `cvetodo-agent config init` followed by
+`cvetodo-agent service install`.
 
 ### Build from Source
 
@@ -117,7 +137,7 @@ Configuration Status
   - Team ID: team_12345
   - API Key: sk12****5678 (hidden)
   - Agent Name: my-server
-  - Scan Interval: 1h0m0s
+  - Scan Interval: 24h0m0s
   - Enabled Scanners: [dpkg rpm pip npm]
 ```
 
@@ -140,8 +160,9 @@ api:
   timeout: "30s"
 
 agent:
+  enabled: true       # set to false to disable all scanning without uninstalling
   name: "my-server"
-  scan_interval: "1h"
+  scan_interval: "24h"
   report_interval: "24h"
   data_dir: "/home/user/.cvetodo-agent/data"
 
@@ -193,12 +214,17 @@ cvetodo-agent run --config /path/to/config.yaml
       --log-format string  log format (text, json) (default "text")
 
 # Available commands
-  run            Start the CVETodo agent in continuous monitoring mode
-  scan           Perform a one-time system scan
-  config init    Initialize configuration file (--force to overwrite)
-  config status  Check configuration status and validate settings
-  version        Show version information
-  help           Show help for any command
+  run                Start the CVETodo agent in continuous monitoring mode (foreground)
+  scan               Perform a one-time system scan
+  config init        Initialize configuration file (--force to overwrite)
+  config status      Check configuration status and validate settings
+  service install    Install and start the background service (daily scans)
+  service uninstall  Stop and remove the background service
+  service start      Start the background service
+  service stop       Stop the background service
+  service status     Show background service status
+  version            Show version information
+  help               Show help for any command
 
 # Config init specific flags
   --force        Force overwrite existing configuration file
@@ -224,33 +250,23 @@ Scanners are automatically enabled based on availability of required commands.
 
 ## System Service
 
-### Linux (systemd)
-Create `/etc/systemd/system/cvetodo-agent.service`:
-```ini
-[Unit]
-Description=CVETodo Agent
-After=network.target
+The agent has built-in service support for Windows (SCM), Linux (systemd), and macOS (launchd) —
+no external tools required. The quick install scripts set this up automatically; to do it manually:
 
-[Service]
-Type=simple
-User=cvetodo
-Group=cvetodo
-ExecStart=/usr/local/bin/cvetodo-agent run
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
 ```bash
-sudo systemctl enable cvetodo-agent
-sudo systemctl start cvetodo-agent
+# Requires administrator/root privileges
+sudo cvetodo-agent service install    # registers the service and starts it (auto-starts on boot)
+sudo cvetodo-agent service status
+sudo cvetodo-agent service stop
+sudo cvetodo-agent service uninstall
 ```
 
-### Windows Service
-Use tools like NSSM (Non-Sucking Service Manager) to run the agent as a Windows service.
+The service scans once a day by default (`agent.scan_interval: 24h`). Set `agent.enabled: false`
+in the configuration file to pause scanning without uninstalling the service.
+
+Note for services: the configuration file is read from a machine-wide location so the service
+account can find it — `C:\ProgramData\cvetodo-agent\.cvetodo-agent.yaml` on Windows,
+`/etc/cvetodo-agent/.cvetodo-agent.yaml` on Linux/macOS.
 
 ### Docker
 ```dockerfile
@@ -405,7 +421,7 @@ Configuration Status
   - Team ID: team_12345
   - API Key: sk12****5678 (hidden)
   - Agent Name: my-server
-  - Scan Interval: 1h0m0s
+  - Scan Interval: 24h0m0s
   - Enabled Scanners: [dpkg rpm pip npm]
 ```
 

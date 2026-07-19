@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -37,6 +38,7 @@ type APIConfig struct {
 
 // AgentConfig holds agent runtime settings
 type AgentConfig struct {
+	Enabled        bool          `mapstructure:"enabled"`
 	Name           string        `mapstructure:"name"`
 	ScanInterval   time.Duration `mapstructure:"scan_interval"`
 	ReportInterval time.Duration `mapstructure:"report_interval"`
@@ -59,14 +61,14 @@ func Load() (*Config, error) {
 	// Configuration file settings
 	v.SetConfigName(".cvetodo-agent")
 	v.SetConfigType("yaml")
-	v.AddConfigPath(".")
-	v.AddConfigPath(getHomeDir())
-	v.AddConfigPath("/etc/cvetodo-agent")
+	for _, path := range getSearchPaths() {
+		v.AddConfigPath(path)
+	}
 
 	// DEBUG: Print search paths
 	fmt.Printf("DEBUG: Home directory: %s\n", getHomeDir())
 	fmt.Printf("DEBUG: Looking for config file: .cvetodo-agent.yaml\n")
-	fmt.Printf("DEBUG: Search paths: [\".\", \"%s\", \"/etc/cvetodo-agent\"]\n", getHomeDir())
+	fmt.Printf("DEBUG: Search paths: %v\n", getSearchPaths())
 
 	// Environment variables
 	v.SetEnvPrefix("CVETODO")
@@ -124,8 +126,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("api.timeout", "30s")
 
 	// Agent defaults
+	v.SetDefault("agent.enabled", true)
 	v.SetDefault("agent.name", getHostname())
-	v.SetDefault("agent.scan_interval", "1h")
+	v.SetDefault("agent.scan_interval", "24h")
 	v.SetDefault("agent.report_interval", "24h")
 	v.SetDefault("agent.data_dir", getDefaultDataDir())
 
@@ -224,8 +227,9 @@ api:
   timeout: "30s"
 
 agent:
+  enabled: true       # set to false to disable all scanning without uninstalling
   name: "%s"
-  scan_interval: "1h"
+  scan_interval: "24h"
   report_interval: "24h"
   data_dir: "%s"
 
@@ -252,6 +256,24 @@ scanner:
 	fmt.Println("You can now run 'cvetodo-agent scan' to perform your first vulnerability scan.")
 
 	return nil
+}
+
+// getSearchPaths returns the directories searched for the configuration
+// file, in priority order. Machine-wide locations are included so the
+// agent finds its configuration when running as a system service under
+// a different account (LocalSystem/root) than the one that installed it.
+func getSearchPaths() []string {
+	paths := []string{".", getHomeDir()}
+
+	if runtime.GOOS == "windows" {
+		if programData := os.Getenv("PROGRAMDATA"); programData != "" {
+			paths = append(paths, filepath.Join(programData, "cvetodo-agent"))
+		}
+	} else {
+		paths = append(paths, "/etc/cvetodo-agent")
+	}
+
+	return paths
 }
 
 // getHostname returns the system hostname
@@ -281,11 +303,14 @@ func getDefaultDataDir() string {
 	return strings.ReplaceAll(dataDir, "\\", "/")
 }
 
-// ConfigExists checks if the configuration file exists
+// ConfigExists checks if the configuration file exists in any search path
 func ConfigExists() bool {
-	configPath := filepath.Join(getHomeDir(), ".cvetodo-agent.yaml")
-	_, err := os.Stat(configPath)
-	return err == nil
+	for _, dir := range getSearchPaths() {
+		if _, err := os.Stat(filepath.Join(dir, ".cvetodo-agent.yaml")); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // GetConfigPath returns the expected configuration file path

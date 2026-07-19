@@ -7,6 +7,7 @@ import (
 	"github.com/aecwalker/CVETodo-agent/internal/agent"
 	"github.com/aecwalker/CVETodo-agent/internal/config"
 	"github.com/aecwalker/CVETodo-agent/internal/logger"
+	svc "github.com/aecwalker/CVETodo-agent/internal/service"
 	"github.com/spf13/cobra"
 )
 
@@ -84,6 +85,112 @@ var configCmd = &cobra.Command{
 	Long:  "Manage agent configuration",
 }
 
+var serviceCmd = &cobra.Command{
+	Use:   "service",
+	Short: "Manage the background service",
+	Long: `Install and manage the CVETodo agent as a background service.
+
+The service starts automatically on boot and scans the system once a day
+by default (configurable via agent.scan_interval).
+
+To stop scanning you can either:
+  - run 'cvetodo-agent service stop' (or 'service uninstall')
+  - set 'agent.enabled: false' in the configuration file
+  - stop or disable the service in services.msc (Windows) or with
+    'systemctl stop cvetodo-agent' / 'systemctl disable cvetodo-agent' (Linux)`,
+}
+
+var serviceInstallCmd = &cobra.Command{
+	Use:   "install",
+	Short: "Install and start the background service",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if !config.ConfigExists() {
+			fmt.Fprintf(os.Stderr, "Configuration file not found.\n")
+			fmt.Fprintf(os.Stderr, "Please run 'cvetodo-agent config init' before installing the service.\n")
+			return fmt.Errorf("configuration required")
+		}
+
+		if err := svc.Control("install"); err != nil {
+			return err
+		}
+		fmt.Println("Service installed (starts automatically on boot).")
+
+		if err := svc.Control("start"); err != nil {
+			return err
+		}
+		fmt.Println("Service started. The system will be scanned once a day by default.")
+		fmt.Println("To disable: 'cvetodo-agent service stop', set 'agent.enabled: false' in the config,")
+		fmt.Println("or stop the 'CVETodo Agent' service in your system's service manager.")
+		return nil
+	},
+}
+
+var serviceUninstallCmd = &cobra.Command{
+	Use:   "uninstall",
+	Short: "Stop and remove the background service",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Best effort stop; the service may not be running
+		_ = svc.Control("stop")
+
+		if err := svc.Control("uninstall"); err != nil {
+			return err
+		}
+		fmt.Println("Service uninstalled.")
+		return nil
+	},
+}
+
+var serviceStartCmd = &cobra.Command{
+	Use:   "start",
+	Short: "Start the background service",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := svc.Control("start"); err != nil {
+			return err
+		}
+		fmt.Println("Service started.")
+		return nil
+	},
+}
+
+var serviceStopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "Stop the background service",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := svc.Control("stop"); err != nil {
+			return err
+		}
+		fmt.Println("Service stopped. It will start again on next boot unless uninstalled or disabled.")
+		return nil
+	},
+}
+
+var serviceStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show background service status",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		status, err := svc.Status()
+		if err != nil {
+			return fmt.Errorf("failed to query service status (is the service installed?): %w", err)
+		}
+		fmt.Printf("Service status: %s\n", status)
+		return nil
+	},
+}
+
+// serviceRunCmd is the hidden entrypoint executed by the service manager
+var serviceRunCmd = &cobra.Command{
+	Use:    "run",
+	Short:  "Run under the service manager (internal)",
+	Hidden: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		s, err := svc.New()
+		if err != nil {
+			return err
+		}
+		return s.Run()
+	},
+}
+
 var initConfigCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize configuration",
@@ -100,21 +207,21 @@ var statusConfigCmd = &cobra.Command{
 	Long:  "Check if configuration file exists and validate configuration",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configPath := config.GetConfigPath()
-		
+
 		fmt.Printf("Configuration Status\n")
 		fmt.Printf("===================\n\n")
-		
+
 		// Check if config file exists
 		if config.ConfigExists() {
 			fmt.Printf("✓ Config file exists: %s\n", configPath)
-			
+
 			// Try to load and validate configuration
 			cfg, err := config.Load()
 			if err != nil {
 				fmt.Printf("✗ Configuration validation failed: %v\n", err)
 				return nil
 			}
-			
+
 			fmt.Printf("✓ Configuration is valid\n")
 			fmt.Printf("  - API Base URL: %s\n", cfg.API.BaseURL)
 			fmt.Printf("  - Team ID: %s\n", cfg.API.TeamID)
@@ -127,7 +234,7 @@ var statusConfigCmd = &cobra.Command{
 			fmt.Printf("\nTo create a configuration file, run:\n")
 			fmt.Printf("  cvetodo-agent config init\n")
 		}
-		
+
 		return nil
 	},
 }
@@ -142,8 +249,9 @@ func maskString(s string) string {
 
 func init() {
 	// Add subcommands
-	rootCmd.AddCommand(runCmd, scanCmd, configCmd)
+	rootCmd.AddCommand(runCmd, scanCmd, configCmd, serviceCmd)
 	configCmd.AddCommand(initConfigCmd, statusConfigCmd)
+	serviceCmd.AddCommand(serviceInstallCmd, serviceUninstallCmd, serviceStartCmd, serviceStopCmd, serviceStatusCmd, serviceRunCmd)
 
 	// Command-specific flags
 	initConfigCmd.Flags().Bool("force", false, "Force overwrite existing configuration file")
@@ -159,4 +267,4 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-} 
+}

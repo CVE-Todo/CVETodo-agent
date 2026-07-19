@@ -59,6 +59,26 @@ $zipPath = Join-Path $tempDir $zipName
 
 Write-Host "Downloading $zipName ($tag)..."
 Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -Headers @{ 'User-Agent' = 'cvetodo-agent-installer' }
+
+# Verify the artifact against the published checksums before unpacking
+$checksumAsset = $release.assets | Where-Object { $_.name -eq 'SHA256SUMS' }
+if ($checksumAsset) {
+    Write-Host "Verifying checksum..."
+    $checksumPath = Join-Path $tempDir 'SHA256SUMS'
+    Invoke-WebRequest -Uri $checksumAsset.browser_download_url -OutFile $checksumPath -Headers @{ 'User-Agent' = 'cvetodo-agent-installer' }
+    $expectedLine = Get-Content $checksumPath | Where-Object { $_ -match [regex]::Escape($zipName) } | Select-Object -First 1
+    if (-not $expectedLine) {
+        Write-Error "No checksum entry found for '$zipName' in SHA256SUMS. Aborting."
+    }
+    $expectedHash = ($expectedLine -split '\s+')[0].ToLowerInvariant()
+    $actualHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualHash -ne $expectedHash) {
+        Write-Error "Checksum verification failed for '$zipName' (expected $expectedHash, got $actualHash). Aborting."
+    }
+} else {
+    Write-Warning "No SHA256SUMS published for release $tag; skipping checksum verification."
+}
+
 Expand-Archive -Path $zipPath -DestinationPath $tempDir -Force
 
 # --- Install binary ----------------------------------------------------------

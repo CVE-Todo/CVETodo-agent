@@ -50,6 +50,11 @@ jobs:
           GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/darwin-amd64/cvetodo-agent ./cmd/agent
           tar -czf dist/packages/cvetodo-agent-${{ github.ref_name }}-darwin-amd64.tar.gz -C dist/darwin-amd64 cvetodo-agent
 
+      - name: Generate checksums
+        run: |
+          cd dist/packages
+          sha256sum * > SHA256SUMS
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -57,6 +62,7 @@ jobs:
             dist/packages/cvetodo-agent-${{ github.ref_name }}-linux-amd64.tar.gz
             dist/packages/cvetodo-agent-${{ github.ref_name }}-windows-amd64.zip
             dist/packages/cvetodo-agent-${{ github.ref_name }}-darwin-amd64.tar.gz
+            dist/packages/SHA256SUMS
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

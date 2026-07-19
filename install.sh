@@ -54,11 +54,24 @@ fi
 
 TARBALL="cvetodo-agent-${TAG}-${OS}-${ARCH}.tar.gz"
 URL="https://github.com/${REPO}/releases/download/${TAG}/${TARBALL}"
+CHECKSUMS_URL="https://github.com/${REPO}/releases/download/${TAG}/SHA256SUMS"
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 echo "Downloading ${TARBALL} (${TAG})..."
 curl -fsSL "$URL" -o "${TMP_DIR}/${TARBALL}"
+
+# Verify the artifact against the published checksums before unpacking
+if curl -fsSL "$CHECKSUMS_URL" -o "${TMP_DIR}/SHA256SUMS" 2>/dev/null; then
+    echo "Verifying checksum..."
+    (cd "$TMP_DIR" && grep " ${TARBALL}\$" SHA256SUMS | sha256sum -c -) || {
+        echo "Error: checksum verification failed for ${TARBALL}. Aborting." >&2
+        exit 1
+    }
+else
+    echo "Warning: no SHA256SUMS published for release ${TAG}; skipping checksum verification." >&2
+fi
+
 tar -xzf "${TMP_DIR}/${TARBALL}" -C "$TMP_DIR"
 
 # --- Install binary ----------------------------------------------------------

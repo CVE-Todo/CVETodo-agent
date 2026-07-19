@@ -95,7 +95,7 @@ func (c *Client) SubmitScanReport(report *ScanReport) error {
 	}
 
 	// Make API request
-	resp, err := c.makeRequest("POST", "/functions/v1/agent-scans", data)
+	resp, err := c.makeRequest("POST", "/api/v1/agents/scans", data)
 	if err != nil {
 		return fmt.Errorf("failed to submit scan report: %w", err)
 	}
@@ -124,7 +124,7 @@ func (c *Client) RegisterAgent(systemInfo SystemInfo) error {
 	}
 
 	// Make API request
-	resp, err := c.makeRequest("POST", "/functions/v1/agent-register", data)
+	resp, err := c.makeRequest("POST", "/api/v1/agents/register", data)
 	if err != nil {
 		return fmt.Errorf("failed to register agent: %w", err)
 	}

@@ -134,7 +134,7 @@ After running `config init`, your configuration file will look like:
 ```yaml
 # CVETodo Agent Configuration
 api:
-  base_url: "https://api.cvetodo.com"
+  base_url: "https://cvetodo.com"
   api_key: "your-actual-api-key"
   team_id: "your-actual-team-id"
   timeout: "30s"

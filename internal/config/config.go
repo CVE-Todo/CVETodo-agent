@@ -119,8 +119,8 @@ func Load() (*Config, error) {
 
 // setDefaults sets default configuration values
 func setDefaults(v *viper.Viper) {
-	// API defaults - point to the Next.js application
-	v.SetDefault("api.base_url", "http://localhost:3000")
+	// API defaults - point to the production CVETodo API
+	v.SetDefault("api.base_url", "https://cvetodo.com")
 	v.SetDefault("api.timeout", "30s")
 
 	// Agent defaults
@@ -218,7 +218,7 @@ func Init(force bool) error {
 	// Create default config content with actual values
 	defaultConfig := fmt.Sprintf(`# CVETodo Agent Configuration
 api:
-  base_url: "http://localhost:3000"
+  base_url: "https://cvetodo.com"
   api_key: "%s"
   team_id: "%s"
   timeout: "30s"

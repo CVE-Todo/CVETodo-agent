@@ -43,6 +43,7 @@ Thumbs.db
 !configs/config.yaml.example
 !.github/workflows/*.yml
 !.github/workflows/*.yaml
+!.github/dependabot.yml
 
 # Log files
 *.log

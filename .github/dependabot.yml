@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # 7-day cooldown: compromised package versions are usually yanked within
+  # days of publication, so never auto-adopt a release in its first week
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7

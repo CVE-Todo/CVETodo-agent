@@ -205,12 +205,17 @@ func (a *Agent) storeScanReport(systemInfo api.SystemInfo, packages []api.Packag
 	if err != nil {
 		return fmt.Errorf("failed to create report file: %w", err)
 	}
-	defer file.Close()
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(report); err != nil {
+		_ = file.Close()
 		return fmt.Errorf("failed to encode report: %w", err)
+	}
+
+	// Close errors matter here: they can signal the report never made it to disk
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("failed to write report file: %w", err)
 	}
 
 	a.logger.WithComponent("agent").WithField("file", filepath).Info("scan report stored locally")
@@ -251,7 +256,7 @@ func (a *Agent) submitStoredReport(filename string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open report file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var report api.ScanReport
 	if err := json.NewDecoder(file).Decode(&report); err != nil {

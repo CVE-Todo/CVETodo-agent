@@ -99,7 +99,7 @@ func (c *Client) SubmitScanReport(report *ScanReport) error {
 	if err != nil {
 		return fmt.Errorf("failed to submit scan report: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated {
 		return c.handleErrorResponse(resp)
@@ -128,7 +128,7 @@ func (c *Client) RegisterAgent(systemInfo SystemInfo) error {
 	if err != nil {
 		return fmt.Errorf("failed to register agent: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		return c.handleErrorResponse(resp)

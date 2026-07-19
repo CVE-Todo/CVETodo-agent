@@ -3,6 +3,8 @@ package config
 import (
 	"bufio"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -137,7 +139,32 @@ func validate(config *Config) error {
 		return fmt.Errorf("api.base_url is required")
 	}
 
+	u, err := url.Parse(config.API.BaseURL)
+	if err != nil {
+		return fmt.Errorf("api.base_url is not a valid URL: %w", err)
+	}
+	// The API key is sent as a Bearer token on every request; require TLS
+	// so it cannot be sniffed in transit. Plain HTTP is only allowed for
+	// local development against loopback.
+	if u.Scheme != "https" {
+		if u.Scheme == "http" && isLoopbackHost(u.Hostname()) {
+			return nil
+		}
+		return fmt.Errorf("api.base_url must use https (got %q); http is only allowed for localhost", config.API.BaseURL)
+	}
+
 	return nil
+}
+
+// isLoopbackHost reports whether host refers to the local machine
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // Init creates a default configuration file
@@ -185,6 +212,9 @@ func Init(force bool) error {
 	if apiKey == "" {
 		return fmt.Errorf("API key is required")
 	}
+	if err := validateCredential("API key", apiKey); err != nil {
+		return err
+	}
 
 	// Prompt for team ID
 	fmt.Print("Enter your CVETodo team ID: ")
@@ -192,6 +222,9 @@ func Init(force bool) error {
 	teamID := strings.TrimSpace(scanner.Text())
 	if teamID == "" {
 		return fmt.Errorf("team ID is required")
+	}
+	if err := validateCredential("team ID", teamID); err != nil {
+		return err
 	}
 
 	// Check for scanner errors
@@ -236,6 +269,21 @@ scanner:
 	fmt.Printf("\nConfiguration file created at: %s\n", configPath)
 	fmt.Println("You can now run 'cvetodo-agent scan' to perform your first vulnerability scan.")
 
+	return nil
+}
+
+// validateCredential rejects values that would break out of the quoted
+// YAML strings the credentials are written into (quotes, backslashes,
+// newlines and other control characters).
+func validateCredential(name, value string) error {
+	if strings.ContainsAny(value, "\"'\\\n\r\t") {
+		return fmt.Errorf("%s contains invalid characters (quotes, backslashes or whitespace)", name)
+	}
+	for _, r := range value {
+		if r < 0x20 || r == 0x7f {
+			return fmt.Errorf("%s contains control characters", name)
+		}
+	}
 	return nil
 }
 

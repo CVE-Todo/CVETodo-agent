@@ -9,11 +9,11 @@
 
     Run from an elevated PowerShell prompt:
 
-        irm https://raw.githubusercontent.com/aecwalker/CVETodo-agent/main/install.ps1 | iex
+        irm https://raw.githubusercontent.com/CVE-Todo/CVETodo-agent/main/install.ps1 | iex
 
     Non-interactive install:
 
-        & ([scriptblock]::Create((irm https://raw.githubusercontent.com/aecwalker/CVETodo-agent/main/install.ps1))) -ApiKey "your-key" -TeamId "your-team"
+        & ([scriptblock]::Create((irm https://raw.githubusercontent.com/CVE-Todo/CVETodo-agent/main/install.ps1))) -ApiKey "your-key" -TeamId "your-team"
 
 .NOTES
     To disable the agent later:
@@ -29,7 +29,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$Repo = 'aecwalker/CVETodo-agent'
+$Repo = 'CVE-Todo/CVETodo-agent'
 $ConfigDir = "$env:ProgramData\cvetodo-agent"
 $ConfigFile = "$ConfigDir\.cvetodo-agent.yaml"
 

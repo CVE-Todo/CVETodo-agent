@@ -1,4 +1,4 @@
-module github.com/aecwalker/CVETodo-agent
+module github.com/CVE-Todo/CVETodo-agent
 
 go 1.23.0
 

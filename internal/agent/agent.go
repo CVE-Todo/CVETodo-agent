@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aecwalker/CVETodo-agent/internal/api"
-	"github.com/aecwalker/CVETodo-agent/internal/config"
-	"github.com/aecwalker/CVETodo-agent/internal/logger"
-	"github.com/aecwalker/CVETodo-agent/internal/scanner"
+	"github.com/CVE-Todo/CVETodo-agent/internal/api"
+	"github.com/CVE-Todo/CVETodo-agent/internal/config"
+	"github.com/CVE-Todo/CVETodo-agent/internal/logger"
+	"github.com/CVE-Todo/CVETodo-agent/internal/scanner"
 )
 
 // Agent represents the main CVETodo agent

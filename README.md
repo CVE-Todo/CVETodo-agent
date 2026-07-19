@@ -27,22 +27,22 @@ agent as a background service that scans your system **once a day**.
 #### Windows
 From an elevated (Administrator) PowerShell prompt:
 ```powershell
-irm https://raw.githubusercontent.com/aecwalker/CVETodo-agent/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/CVE-Todo/CVETodo-agent/main/install.ps1 | iex
 ```
 
 Non-interactive install:
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/aecwalker/CVETodo-agent/main/install.ps1))) -ApiKey "your-key" -TeamId "your-team"
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/CVE-Todo/CVETodo-agent/main/install.ps1))) -ApiKey "your-key" -TeamId "your-team"
 ```
 
 #### Linux / macOS
 ```bash
-curl -fsSL https://raw.githubusercontent.com/aecwalker/CVETodo-agent/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/CVE-Todo/CVETodo-agent/main/install.sh | sudo bash
 ```
 
 Non-interactive install:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/aecwalker/CVETodo-agent/main/install.sh | sudo CVETODO_API_KEY=your-key CVETODO_TEAM_ID=your-team bash
+curl -fsSL https://raw.githubusercontent.com/CVE-Todo/CVETodo-agent/main/install.sh | sudo CVETODO_API_KEY=your-key CVETODO_TEAM_ID=your-team bash
 ```
 
 ### Turning the agent off
@@ -55,7 +55,7 @@ The agent scans daily by default. You can turn it off at any time:
 
 ### Manual Install (pre-built binaries)
 
-Download the latest release for your platform from the [releases page](https://github.com/aecwalker/CVETodo-agent/releases)
+Download the latest release for your platform from the [releases page](https://github.com/CVE-Todo/CVETodo-agent/releases)
 (assets are named `cvetodo-agent-<version>-<os>-amd64.tar.gz`, or `.zip` on Windows), extract the
 binary, and place it on your PATH. Then run `cvetodo-agent config init` followed by
 `cvetodo-agent service install`.
@@ -68,7 +68,7 @@ binary, and place it on your PATH. Then run `cvetodo-agent config init` followed
 
 #### Build Steps
 ```bash
-git clone https://github.com/aecwalker/CVETodo-agent.git
+git clone https://github.com/CVE-Todo/CVETodo-agent.git
 cd CVETodo-agent
 
 # Build for current platform
@@ -285,7 +285,7 @@ CMD ["cvetodo-agent", "run", "--config", "/etc/cvetodo-agent/config.yaml"]
 
 ### Development Setup
 ```bash
-git clone https://github.com/aecwalker/CVETodo-agent.git
+git clone https://github.com/CVE-Todo/CVETodo-agent.git
 cd CVETodo-agent
 
 # Setup development environment
@@ -461,7 +461,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Support
 
-- GitHub Issues: [Report bugs and request features](https://github.com/aecwalker/CVETodo-agent/issues)
-- Documentation: [Wiki](https://github.com/aecwalker/CVETodo-agent/wiki)
+- GitHub Issues: [Report bugs and request features](https://github.com/CVE-Todo/CVETodo-agent/issues)
+- Documentation: [Wiki](https://github.com/CVE-Todo/CVETodo-agent/wiki)
 - CVETodo Support: [Contact support](https://cvetodo.com/support)
 

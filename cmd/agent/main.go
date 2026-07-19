@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/aecwalker/CVETodo-agent/internal/agent"
-	"github.com/aecwalker/CVETodo-agent/internal/config"
-	"github.com/aecwalker/CVETodo-agent/internal/logger"
-	svc "github.com/aecwalker/CVETodo-agent/internal/service"
+	"github.com/CVE-Todo/CVETodo-agent/internal/agent"
+	"github.com/CVE-Todo/CVETodo-agent/internal/config"
+	"github.com/CVE-Todo/CVETodo-agent/internal/logger"
+	svc "github.com/CVE-Todo/CVETodo-agent/internal/service"
 	"github.com/spf13/cobra"
 )
 

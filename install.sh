@@ -7,7 +7,7 @@
 # (systemd on Linux, launchd on macOS) that scans the system once a day.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/aecwalker/CVETodo-agent/main/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/CVE-Todo/CVETodo-agent/main/install.sh | sudo bash
 #
 # Non-interactive:
 #   curl -fsSL ... | sudo CVETODO_API_KEY=your-key CVETODO_TEAM_ID=your-team bash
@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-REPO="aecwalker/CVETodo-agent"
+REPO="CVE-Todo/CVETodo-agent"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/cvetodo-agent"
 CONFIG_FILE="${CONFIG_DIR}/.cvetodo-agent.yaml"

@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/aecwalker/CVETodo-agent/internal/api"
-	"github.com/aecwalker/CVETodo-agent/internal/logger"
+	"github.com/CVE-Todo/CVETodo-agent/internal/api"
+	"github.com/CVE-Todo/CVETodo-agent/internal/logger"
 )
 
 // DpkgScanner scans Debian/Ubuntu packages

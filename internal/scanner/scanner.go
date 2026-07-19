@@ -11,9 +11,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/aecwalker/CVETodo-agent/internal/api"
-	"github.com/aecwalker/CVETodo-agent/internal/config"
-	"github.com/aecwalker/CVETodo-agent/internal/logger"
+	"github.com/CVE-Todo/CVETodo-agent/internal/api"
+	"github.com/CVE-Todo/CVETodo-agent/internal/config"
+	"github.com/CVE-Todo/CVETodo-agent/internal/logger"
 	"golang.org/x/sys/windows/registry"
 )
 

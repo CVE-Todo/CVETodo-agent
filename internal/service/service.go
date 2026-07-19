@@ -5,9 +5,9 @@ import (
 
 	"github.com/kardianos/service"
 
-	"github.com/aecwalker/CVETodo-agent/internal/agent"
-	"github.com/aecwalker/CVETodo-agent/internal/config"
-	"github.com/aecwalker/CVETodo-agent/internal/logger"
+	"github.com/CVE-Todo/CVETodo-agent/internal/agent"
+	"github.com/CVE-Todo/CVETodo-agent/internal/config"
+	"github.com/CVE-Todo/CVETodo-agent/internal/logger"
 )
 
 // Name is the system service name used across platforms

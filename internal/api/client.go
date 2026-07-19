@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aecwalker/CVETodo-agent/internal/config"
-	"github.com/aecwalker/CVETodo-agent/internal/logger"
+	"github.com/CVE-Todo/CVETodo-agent/internal/config"
+	"github.com/CVE-Todo/CVETodo-agent/internal/logger"
 )
 
 // Client handles communication with CVETodo API

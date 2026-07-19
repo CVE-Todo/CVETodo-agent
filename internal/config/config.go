@@ -65,11 +65,6 @@ func Load() (*Config, error) {
 		v.AddConfigPath(path)
 	}
 
-	// DEBUG: Print search paths
-	fmt.Printf("DEBUG: Home directory: %s\n", getHomeDir())
-	fmt.Printf("DEBUG: Looking for config file: .cvetodo-agent.yaml\n")
-	fmt.Printf("DEBUG: Search paths: %v\n", getSearchPaths())
-
 	// Environment variables
 	v.SetEnvPrefix("CVETODO")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -78,32 +73,18 @@ func Load() (*Config, error) {
 	// Read config file
 	configFileFound := true
 	if err := v.ReadInConfig(); err != nil {
-		fmt.Printf("DEBUG: Viper ReadInConfig error: %v\n", err)
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			configFileFound = false
 		} else {
 			return nil, fmt.Errorf("error reading config file: %w", err)
 		}
-	} else {
-		fmt.Printf("DEBUG: Viper found config file: %s\n", v.ConfigFileUsed())
 	}
 
 	// Unmarshal config
 	var config Config
 	if err := v.Unmarshal(&config); err != nil {
-		fmt.Printf("DEBUG: Unmarshal error: %v\n", err)
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
-
-	// Fixed debug output with safety check
-	apiKeyPreview := "empty"
-	if len(config.API.APIKey) > 10 {
-		apiKeyPreview = config.API.APIKey[:10] + "..."
-	} else if len(config.API.APIKey) > 0 {
-		apiKeyPreview = config.API.APIKey[:len(config.API.APIKey)] + "..."
-	}
-	fmt.Printf("DEBUG: Config loaded - API Key: %s, Team ID: %s\n",
-		apiKeyPreview, config.API.TeamID)
 
 	// If no config file was found and API key is missing, suggest running config init
 	if !configFileFound && config.API.APIKey == "" {

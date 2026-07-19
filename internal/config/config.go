@@ -243,8 +243,12 @@ scanner:
 // file, in priority order. Machine-wide locations are included so the
 // agent finds its configuration when running as a system service under
 // a different account (LocalSystem/root) than the one that installed it.
+// The current working directory is deliberately NOT searched: the agent
+// often runs privileged, and loading configuration from an arbitrary
+// (potentially attacker-writable) working directory would allow scan
+// reports and the API key to be redirected.
 func getSearchPaths() []string {
-	paths := []string{".", getHomeDir()}
+	paths := []string{getHomeDir()}
 
 	if runtime.GOOS == "windows" {
 		if programData := os.Getenv("PROGRAMDATA"); programData != "" {

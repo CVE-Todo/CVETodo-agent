@@ -62,11 +62,9 @@ binary in place, and restarts the background service if it was running.
 Configuration is untouched. `cvetodo-agent upgrade --check` only reports
 whether a newer release exists.
 
-On older versions (≤ v1.3.0) that lack the `upgrade` command, re-run the
-install script instead. Note: on those versions the installer replaces the
-binary but then errors with "service cvetodo-agent already exists" — the
-upgrade has still worked; just run `cvetodo-agent service start` (elevated)
-to finish.
+On older versions that lack the `upgrade` command, re-running the install
+script upgrades in place instead: it stops the service, replaces the binary,
+keeps your configuration, and re-registers the service.
 
 ### Turning the agent off
 

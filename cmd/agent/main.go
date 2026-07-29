@@ -184,7 +184,7 @@ var serviceInstallCmd = &cobra.Command{
 			return fmt.Errorf("configuration required")
 		}
 
-		if err := svc.Control("install"); err != nil {
+		if err := svc.Install(); err != nil {
 			return err
 		}
 		fmt.Println("Service installed (starts automatically on boot).")

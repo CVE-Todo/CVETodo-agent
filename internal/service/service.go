@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kardianos/service"
 
@@ -58,6 +59,41 @@ func New() (service.Service, error) {
 	}
 
 	return service.New(&program{}, svcConfig)
+}
+
+// Install registers the service, replacing any existing registration. This
+// is what makes re-running the install scripts (or `service install` by
+// hand) a working upgrade path: they stop the service and swap the binary,
+// then call install — which must not fail just because the previous
+// version's registration is still present. Re-registering also picks up any
+// service-definition changes between versions. The "already exists" match
+// covers kardianos/service's wording on Windows ("service X already
+// exists") and systemd/launchd ("Init already exists: ...").
+func Install() error {
+	svc, err := New()
+	if err != nil {
+		return fmt.Errorf("failed to create service definition: %w", err)
+	}
+
+	err = service.Control(svc, "install")
+	if err == nil {
+		return nil
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		return fmt.Errorf("failed to install service (administrator/root privileges are required): %w", err)
+	}
+
+	// Existing registration from a previous version: replace it. Stop is
+	// best-effort — the installer scripts stop the service before calling
+	// install, so it is usually already stopped.
+	_ = service.Control(svc, "stop")
+	if err := service.Control(svc, "uninstall"); err != nil {
+		return fmt.Errorf("failed to replace existing service registration: %w", err)
+	}
+	if err := service.Control(svc, "install"); err != nil {
+		return fmt.Errorf("failed to re-install service: %w", err)
+	}
+	return nil
 }
 
 // Control runs a service control action (install, uninstall, start, stop)

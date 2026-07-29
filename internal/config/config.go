@@ -28,6 +28,9 @@ type Config struct {
 
 	// Scanner configuration
 	Scanner ScannerConfig `mapstructure:"scanner"`
+
+	// SNMP device polling configuration
+	SNMP SNMPConfig `mapstructure:"snmp"`
 }
 
 // APIConfig holds CVETodo API settings
@@ -51,6 +54,18 @@ type AgentConfig struct {
 type ScannerConfig struct {
 	EnabledScanners []string          `mapstructure:"enabled_scanners"`
 	ScannerSettings map[string]string `mapstructure:"scanner_settings"`
+}
+
+// SNMPConfig holds SNMP device polling settings. Device addresses and
+// credentials live in a separate hosts file (never in this YAML) so the
+// config file can be shared/committed without leaking secrets.
+type SNMPConfig struct {
+	Enabled       bool   `mapstructure:"enabled"`
+	HostsFile     string `mapstructure:"hosts_file"`
+	Port          uint16 `mapstructure:"port"`
+	Timeout       string `mapstructure:"timeout"`
+	Retries       int    `mapstructure:"retries"`
+	MaxConcurrent int    `mapstructure:"max_concurrent"`
 }
 
 // Load loads configuration from file and environment variables
@@ -94,6 +109,9 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("no configuration file found at %s. Please run 'cvetodo-agent config init' to set up your configuration", configPath)
 	}
 
+	// Expand a leading ~/ in the SNMP hosts file path (viper does not)
+	config.SNMP.HostsFile = expandHome(config.SNMP.HostsFile)
+
 	// Validate required fields
 	if err := validate(&config); err != nil {
 		return nil, fmt.Errorf("configuration validation failed: %w", err)
@@ -121,6 +139,14 @@ func setDefaults(v *viper.Viper) {
 
 	// Scanner defaults - include Windows scanner
 	v.SetDefault("scanner.enabled_scanners", []string{"dpkg", "rpm", "pip", "npm", "windows"})
+
+	// SNMP defaults - disabled unless explicitly enabled
+	v.SetDefault("snmp.enabled", false)
+	v.SetDefault("snmp.hosts_file", getDefaultSNMPHostsFile())
+	v.SetDefault("snmp.port", 161)
+	v.SetDefault("snmp.timeout", "5s")
+	v.SetDefault("snmp.retries", 1)
+	v.SetDefault("snmp.max_concurrent", 8)
 }
 
 // validate validates the configuration
@@ -151,6 +177,14 @@ func validate(config *Config) error {
 			return nil
 		}
 		return fmt.Errorf("api.base_url must use https (got %q); http is only allowed for localhost", config.API.BaseURL)
+	}
+
+	if config.SNMP.Enabled {
+		if _, err := time.ParseDuration(config.SNMP.Timeout); err != nil {
+			return fmt.Errorf("snmp.timeout is not a valid duration: %w", err)
+		}
+		// A missing hosts file is deliberately NOT an error here: package
+		// scanning must keep working; the poller logs and skips instead.
 	}
 
 	return nil
@@ -259,7 +293,19 @@ scanner:
     - "windows"   # Windows packages
   scanner_settings:
     # Additional scanner-specific settings can be added here
-`, apiKey, teamID, getHostname(), getDefaultDataDir())
+
+# Optional: poll network devices (firewalls, switches, ...) over SNMP and
+# report their firmware versions to CVETodo. Device addresses and credentials
+# live in a separate hosts file (one line per device) -- see the README for
+# the format. Keep that file chmod 600; it holds credentials.
+#snmp:
+#  enabled: true
+#  hosts_file: "%s"
+#  port: 161            # default port; per-line port= overrides
+#  timeout: "5s"        # per SNMP request
+#  retries: 1
+#  max_concurrent: 8    # devices polled in parallel
+`, apiKey, teamID, getHostname(), getDefaultDataDir(), getDefaultSNMPHostsFile())
 
 	// Write config file
 	if err := os.WriteFile(configPath, []byte(defaultConfig), 0600); err != nil {
@@ -325,6 +371,20 @@ func getHomeDir() string {
 		return "."
 	}
 	return home
+}
+
+// getDefaultSNMPHostsFile returns the default SNMP hosts file path
+func getDefaultSNMPHostsFile() string {
+	path := filepath.Join(getHomeDir(), "cvetodo_snmp_hosts.txt")
+	return strings.ReplaceAll(path, "\\", "/")
+}
+
+// expandHome expands a leading ~/ to the user's home directory
+func expandHome(path string) string {
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, `~\`) {
+		return filepath.Join(getHomeDir(), path[2:])
+	}
+	return path
 }
 
 // getDefaultDataDir returns the default data directory

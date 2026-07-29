@@ -14,6 +14,7 @@ import (
 	"github.com/CVE-Todo/CVETodo-agent/internal/config"
 	"github.com/CVE-Todo/CVETodo-agent/internal/logger"
 	"github.com/CVE-Todo/CVETodo-agent/internal/scanner"
+	"github.com/CVE-Todo/CVETodo-agent/internal/snmp"
 )
 
 // Agent represents the main CVETodo agent
@@ -22,6 +23,7 @@ type Agent struct {
 	logger    *logger.Logger
 	apiClient *api.Client
 	scanner   *scanner.Manager
+	snmp      *snmp.Poller
 	ctx       context.Context
 	cancel    context.CancelFunc
 }
@@ -30,7 +32,7 @@ type Agent struct {
 func New(cfg *config.Config, log *logger.Logger) *Agent {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return &Agent{
+	agent := &Agent{
 		config:    cfg,
 		logger:    log,
 		apiClient: api.New(cfg, log),
@@ -38,6 +40,10 @@ func New(cfg *config.Config, log *logger.Logger) *Agent {
 		ctx:       ctx,
 		cancel:    cancel,
 	}
+	if cfg.SNMP.Enabled {
+		agent.snmp = snmp.New(cfg, log)
+	}
+	return agent
 }
 
 // Run starts the agent in continuous monitoring mode
@@ -169,8 +175,14 @@ func (a *Agent) performScan() error {
 	// Submit scan report
 	if err := a.apiClient.SubmitScanReport(report); err != nil {
 		a.logger.WithComponent("agent").WithError(err).Error("failed to submit scan report, storing for later")
-		return a.storeScanReport(systemInfo, packages, "full")
+		if err := a.storeScanReport(systemInfo, packages, "full"); err != nil {
+			return err
+		}
 	}
+
+	// SNMP device poll rides the same cycle; its failure never fails the
+	// package scan
+	a.pollAndReportDevices(systemInfo)
 
 	duration := time.Since(start)
 	a.logger.Performance("package_scan", duration.Seconds()*1000, map[string]interface{}{
@@ -178,6 +190,66 @@ func (a *Agent) performScan() error {
 	})
 
 	a.logger.WithComponent("agent").WithField("duration", duration).WithField("packages", len(packages)).Info("scan completed and submitted successfully")
+	return nil
+}
+
+// pollAndReportDevices polls SNMP devices (when enabled) and submits the
+// resulting device report, storing it locally when the API is unreachable.
+// All failures are logged, never propagated — SNMP must not break scanning.
+func (a *Agent) pollAndReportDevices(systemInfo api.SystemInfo) {
+	if a.snmp == nil {
+		return
+	}
+
+	devices, err := a.snmp.Poll(a.ctx)
+	if err != nil {
+		a.logger.WithComponent("agent").WithError(err).Warn("snmp poll failed")
+		return
+	}
+	if len(devices) == 0 {
+		return
+	}
+
+	report := &api.DeviceReport{
+		AgentID:  systemInfo.Hostname,
+		ScanTime: time.Now().Format(time.RFC3339),
+		Devices:  devices,
+	}
+
+	if err := a.apiClient.SubmitDeviceReport(report); err != nil {
+		a.logger.WithComponent("agent").WithError(err).Error("failed to submit device report, storing for later")
+		if err := a.storeDeviceReport(report); err != nil {
+			a.logger.WithComponent("agent").WithError(err).Error("failed to store device report")
+		}
+		return
+	}
+
+	a.logger.WithComponent("agent").WithField("devices", len(devices)).Info("device report submitted successfully")
+}
+
+// storeDeviceReport stores a device report locally for later submission
+func (a *Agent) storeDeviceReport(report *api.DeviceReport) error {
+	filename := fmt.Sprintf("devices_%s.json", time.Now().Format("20060102_150405"))
+	filepath := filepath.Join(a.config.Agent.DataDir, filename)
+
+	// Device reports contain the client's network inventory; keep them
+	// readable only by the agent's user
+	file, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to create device report file: %w", err)
+	}
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(report); err != nil {
+		_ = file.Close()
+		return fmt.Errorf("failed to encode device report: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("failed to write device report file: %w", err)
+	}
+
+	a.logger.WithComponent("agent").WithField("file", filepath).Info("device report stored locally")
 	return nil
 }
 
@@ -222,7 +294,7 @@ func (a *Agent) storeScanReport(systemInfo api.SystemInfo, packages []api.Packag
 	return nil
 }
 
-// submitStoredReports submits any stored scan reports
+// submitStoredReports submits any stored scan and device reports
 func (a *Agent) submitStoredReports() error {
 	pattern := filepath.Join(a.config.Agent.DataDir, "scan_*.json")
 	files, err := filepath.Glob(pattern)
@@ -230,12 +302,18 @@ func (a *Agent) submitStoredReports() error {
 		return fmt.Errorf("failed to find stored reports: %w", err)
 	}
 
-	if len(files) == 0 {
+	devicePattern := filepath.Join(a.config.Agent.DataDir, "devices_*.json")
+	deviceFiles, err := filepath.Glob(devicePattern)
+	if err != nil {
+		return fmt.Errorf("failed to find stored device reports: %w", err)
+	}
+
+	if len(files) == 0 && len(deviceFiles) == 0 {
 		a.logger.WithComponent("agent").Debug("no stored reports to submit")
 		return nil
 	}
 
-	a.logger.WithComponent("agent").WithField("count", len(files)).Info("submitting stored reports")
+	a.logger.WithComponent("agent").WithField("count", len(files)+len(deviceFiles)).Info("submitting stored reports")
 
 	var submitted int
 	for _, filename := range files {
@@ -245,8 +323,41 @@ func (a *Agent) submitStoredReports() error {
 		}
 		submitted++
 	}
+	for _, filename := range deviceFiles {
+		if err := a.submitStoredDeviceReport(filename); err != nil {
+			a.logger.WithComponent("agent").WithField("file", filename).WithError(err).Error("failed to submit stored device report")
+			continue
+		}
+		submitted++
+	}
 
 	a.logger.WithComponent("agent").WithField("submitted", submitted).Info("stored reports submission completed")
+	return nil
+}
+
+// submitStoredDeviceReport submits a single stored device report and removes
+// the file on success
+func (a *Agent) submitStoredDeviceReport(filename string) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return fmt.Errorf("failed to open device report file: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+
+	var report api.DeviceReport
+	if err := json.NewDecoder(file).Decode(&report); err != nil {
+		return fmt.Errorf("failed to decode device report: %w", err)
+	}
+
+	if err := a.apiClient.SubmitDeviceReport(&report); err != nil {
+		return fmt.Errorf("failed to submit device report: %w", err)
+	}
+
+	if err := os.Remove(filename); err != nil {
+		a.logger.WithComponent("agent").WithField("file", filename).WithError(err).Warn("failed to remove submitted device report file")
+	}
+
+	a.logger.WithComponent("agent").WithField("file", filename).Info("stored device report submitted and removed")
 	return nil
 }
 

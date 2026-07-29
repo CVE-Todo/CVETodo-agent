@@ -52,6 +52,28 @@ type ScanReport struct {
 	PendingReboot bool       `json:"pending_reboot"`
 }
 
+// Device represents a network device discovered via SNMP
+type Device struct {
+	DiscoveryKey  string `json:"discovery_key"`
+	Address       string `json:"address"`
+	Name          string `json:"name,omitempty"` // label override from the hosts file
+	SysName       string `json:"sys_name,omitempty"`
+	SysDescr      string `json:"sys_descr,omitempty"`
+	SysObjectID   string `json:"sys_object_id,omitempty"`
+	VendorGuess   string `json:"vendor_guess,omitempty"`
+	ProductGuess  string `json:"product_guess,omitempty"`
+	Version       string `json:"version"` // "unknown" when undetermined
+	CategoryGuess string `json:"category_guess,omitempty"`
+}
+
+// DeviceReport represents an SNMP device inventory report
+type DeviceReport struct {
+	AgentID  string   `json:"agent_id"`
+	TeamID   string   `json:"team_id"`
+	ScanTime string   `json:"scan_time"`
+	Devices  []Device `json:"devices"`
+}
+
 // APIError represents an API error response
 type APIError struct {
 	Code    string `json:"code"`
@@ -106,6 +128,31 @@ func (c *Client) SubmitScanReport(report *ScanReport) error {
 	}
 
 	c.logger.WithComponent("api").Info("scan report submitted successfully")
+	return nil
+}
+
+// SubmitDeviceReport submits an SNMP device report to the CVETodo API
+func (c *Client) SubmitDeviceReport(report *DeviceReport) error {
+	c.logger.WithComponent("api").Info("submitting device report")
+
+	report.TeamID = c.teamID
+
+	data, err := json.Marshal(report)
+	if err != nil {
+		return fmt.Errorf("failed to marshal device report: %w", err)
+	}
+
+	resp, err := c.makeRequest("POST", "/api/v1/agents/devices", data)
+	if err != nil {
+		return fmt.Errorf("failed to submit device report: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusCreated {
+		return c.handleErrorResponse(resp)
+	}
+
+	c.logger.WithComponent("api").Info("device report submitted successfully")
 	return nil
 }
 

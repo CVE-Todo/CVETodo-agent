@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/CVE-Todo/CVETodo-agent/internal/config"
 	"github.com/CVE-Todo/CVETodo-agent/internal/logger"
 	svc "github.com/CVE-Todo/CVETodo-agent/internal/service"
+	"github.com/CVE-Todo/CVETodo-agent/internal/snmp"
 	"github.com/spf13/cobra"
 )
 
@@ -83,6 +85,59 @@ var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Configuration management",
 	Long:  "Manage agent configuration",
+}
+
+var snmpCmd = &cobra.Command{
+	Use:   "snmp",
+	Short: "SNMP device polling tools",
+	Long:  "Tools for polling network devices over SNMP",
+}
+
+var snmpTestCmd = &cobra.Command{
+	Use:   "test <host> [key=value ...]",
+	Short: "Poll a single SNMP device and print the result",
+	Long: `Poll one device using hosts-file syntax and print the resulting device
+record as JSON without submitting it. Useful for debugging credentials,
+especially SNMPv3 auth/priv mismatches (which often present as timeouts).
+
+Examples:
+  cvetodo-agent snmp test 10.0.0.1 community=public
+  cvetodo-agent snmp test 10.0.0.2 user=cvetodo auth=SHA256 authpass=secret priv=AES256C privpass=secret2`,
+	Args:         cobra.MinimumNArgs(1),
+	SilenceUsage: true, // a poll failure is not a usage error
+	RunE: func(cmd *cobra.Command, args []string) error {
+		entry, err := snmp.ParseEntryFields(args, 1, 161)
+		if err != nil {
+			return err
+		}
+
+		// Works without a full agent configuration: fall back to poller
+		// defaults when no valid config file is present
+		cfg, err := config.Load()
+		if err != nil {
+			cfg = &config.Config{SNMP: config.SNMPConfig{Timeout: "5s", Retries: 1, MaxConcurrent: 1}}
+		}
+
+		if timeout, _ := cmd.Flags().GetString("timeout"); timeout != "" {
+			cfg.SNMP.Timeout = timeout
+		}
+
+		log := logger.New("warn", "text")
+		poller := snmp.New(cfg, log)
+
+		fmt.Fprintf(os.Stderr, "Polling %s ...\n", entry.Host)
+		device, err := poller.PollOne(cmd.Context(), *entry)
+		if err != nil {
+			return fmt.Errorf("poll failed: %w", err)
+		}
+
+		out, err := json.MarshalIndent(device, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(out))
+		return nil
+	},
 }
 
 var serviceCmd = &cobra.Command{
@@ -229,6 +284,11 @@ var statusConfigCmd = &cobra.Command{
 			fmt.Printf("  - Agent Name: %s\n", cfg.Agent.Name)
 			fmt.Printf("  - Scan Interval: %s\n", cfg.Agent.ScanInterval)
 			fmt.Printf("  - Enabled Scanners: %v\n", cfg.Scanner.EnabledScanners)
+			if cfg.SNMP.Enabled {
+				fmt.Printf("  - SNMP Polling: enabled (hosts file: %s)\n", cfg.SNMP.HostsFile)
+			} else {
+				fmt.Printf("  - SNMP Polling: disabled\n")
+			}
 		} else {
 			fmt.Printf("✗ Config file not found: %s\n", configPath)
 			fmt.Printf("\nTo create a configuration file, run:\n")
@@ -249,12 +309,14 @@ func maskString(s string) string {
 
 func init() {
 	// Add subcommands
-	rootCmd.AddCommand(runCmd, scanCmd, configCmd, serviceCmd)
+	rootCmd.AddCommand(runCmd, scanCmd, configCmd, serviceCmd, snmpCmd)
 	configCmd.AddCommand(initConfigCmd, statusConfigCmd)
 	serviceCmd.AddCommand(serviceInstallCmd, serviceUninstallCmd, serviceStartCmd, serviceStopCmd, serviceStatusCmd, serviceRunCmd)
+	snmpCmd.AddCommand(snmpTestCmd)
 
 	// Command-specific flags
 	initConfigCmd.Flags().Bool("force", false, "Force overwrite existing configuration file")
+	snmpTestCmd.Flags().String("timeout", "", "per-request timeout override (e.g. 10s)")
 
 	// Global flags
 	rootCmd.PersistentFlags().StringP("config", "c", "", "config file (default is $HOME/.cvetodo-agent.yaml)")

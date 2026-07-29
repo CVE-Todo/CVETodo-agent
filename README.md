@@ -10,6 +10,7 @@ The source code to the agent is open for anyone to view on Github to ensure tran
 ## Features
 
 - **Multi-platform package scanning**: Supports Windows, Debian/Ubuntu (dpkg), RedHat/CentOS/SUSE (rpm), Python (pip), and Node.js (npm) packages
+- **SNMP device monitoring** (optional): Polls firewalls, switches and other network kit for model/firmware version and feeds your team's appliance inventory
 - **Continuous monitoring**: Run as a service to continuously monitor for new vulnerabilities
 - **Flexible configuration**: YAML configuration with environment variable support
 - **Structured logging**: JSON and text format logging with configurable levels
@@ -265,6 +266,85 @@ The agent includes scanners for various package managers:
 - **npm**: Requires `npm` command
 
 Scanners are automatically enabled based on availability of required commands.
+
+## SNMP Device Monitoring
+
+The agent can optionally poll network devices — firewalls, switches, routers,
+load balancers, wireless controllers — over SNMP and report their model and
+firmware version to CVETodo. Discovered devices appear in your team's
+**appliance inventory** and are continuously matched against CVEs, with the
+version kept fresh on every poll. Devices the agent can't confidently map to
+the vulnerability catalog still appear as inventory, flagged for a one-time
+manual product link in the dashboard.
+
+### Enabling
+
+Add to `~/.cvetodo-agent.yaml` (or the machine-wide config for services):
+
+```yaml
+snmp:
+  enabled: true
+  hosts_file: "~/cvetodo_snmp_hosts.txt"  # device list, see below
+  port: 161            # default; per-line port= overrides
+  timeout: "5s"        # per SNMP request
+  retries: 1
+  max_concurrent: 8    # devices polled in parallel
+```
+
+The poll runs on the same schedule as the package scan (`agent.scan_interval`,
+daily by default).
+
+### The hosts file
+
+One device per line: an IP address or hostname followed by `key=value`
+options. Blank lines and `#` comments are ignored. Values with spaces can be
+double-quoted. **The file holds credentials — it must not be readable by other
+users (`chmod 600`), or the agent refuses to use it.**
+
+```
+# edge firewalls (SNMP v2c)
+10.0.0.1        community=public  name=edge-fw-akl
+core-sw1.corp   community=ro-string port=1161
+
+# SNMPv3 with authentication and privacy
+10.0.0.2  user=cvetodo auth=SHA256 authpass="s3cret pass" priv=AES256C privpass=abc level=authPriv
+```
+
+| Key | Meaning |
+| --- | --- |
+| `community=` | SNMP v2c community string (implies v2c) |
+| `user=` | SNMPv3 user name (implies v3) |
+| `level=` | `noAuthNoPriv`, `authNoPriv` or `authPriv` (derived from the passwords you supply if omitted) |
+| `auth=` / `authpass=` | v3 authentication: `MD5`, `SHA`, `SHA224`, `SHA256`, `SHA384`, `SHA512` (default `SHA`) |
+| `priv=` / `privpass=` | v3 privacy: `DES`, `AES`, `AES192`, `AES256`, `AES192C`, `AES256C` (default `AES`) |
+| `port=` | UDP port for this device (default 161 or `snmp.port`) |
+| `name=` | Label **and stable identity** for the device (recommended) |
+
+SNMPv3 notes:
+- `SHA` means SHA-1; write `SHA256` etc. explicitly for SHA-2.
+- `AES256` is the Blumenthal draft variant; most network gear (Cisco and
+  others) implements the Reeder variant — use `AES256C` for those. A
+  mismatched privacy protocol typically presents as a timeout.
+- Prefer v3 `authPriv` where the device supports it: v2c community strings
+  travel in cleartext.
+
+Device identity defaults to the host address (plus port when non-standard).
+If you might renumber devices, or different sites reuse the same private IP
+ranges, set `name=` per line — it keeps the dashboard record stable across
+address changes.
+
+Removing a line stops updates for that device but does not delete it from the
+dashboard inventory; remove it there too if it's gone for good.
+
+### Testing a device
+
+```bash
+cvetodo-agent snmp test 10.0.0.1 community=public
+cvetodo-agent snmp test 10.0.0.2 user=cvetodo auth=SHA256 authpass=secret priv=AES256C privpass=secret2
+```
+
+Polls the device and prints the record that would be reported (as JSON)
+without submitting anything — the quickest way to debug credentials.
 
 ## System Service
 

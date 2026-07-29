@@ -109,8 +109,19 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("no configuration file found at %s. Please run 'cvetodo-agent config init' to set up your configuration", configPath)
 	}
 
-	// Expand a leading ~/ in the SNMP hosts file path (viper does not)
-	config.SNMP.HostsFile = expandHome(config.SNMP.HostsFile)
+	// Resolve the SNMP hosts file: an unset path means "next to the config
+	// file actually loaded" (falling back to the home directory when the
+	// config came purely from environment variables); a set path gets a
+	// leading ~/ expanded (viper does not).
+	if strings.TrimSpace(config.SNMP.HostsFile) == "" {
+		dir := getHomeDir()
+		if used := v.ConfigFileUsed(); used != "" {
+			dir = filepath.Dir(used)
+		}
+		config.SNMP.HostsFile = filepath.Join(dir, "cvetodo_snmp_hosts.txt")
+	} else {
+		config.SNMP.HostsFile = expandHome(config.SNMP.HostsFile)
+	}
 
 	// Validate required fields
 	if err := validate(&config); err != nil {
@@ -140,9 +151,12 @@ func setDefaults(v *viper.Viper) {
 	// Scanner defaults - include Windows scanner
 	v.SetDefault("scanner.enabled_scanners", []string{"dpkg", "rpm", "pip", "npm", "windows"})
 
-	// SNMP defaults - disabled unless explicitly enabled
+	// SNMP defaults - disabled unless explicitly enabled. hosts_file has no
+	// default here: when unset it resolves after loading to
+	// cvetodo_snmp_hosts.txt NEXT TO the loaded config file, so the two
+	// files always live side by side (ProgramData//etc for services, home
+	// for interactive use) without any path in the YAML.
 	v.SetDefault("snmp.enabled", false)
-	v.SetDefault("snmp.hosts_file", getDefaultSNMPHostsFile())
 	v.SetDefault("snmp.port", 161)
 	v.SetDefault("snmp.timeout", "5s")
 	v.SetDefault("snmp.retries", 1)
@@ -296,16 +310,16 @@ scanner:
 
 # Optional: poll network devices (firewalls, switches, ...) over SNMP and
 # report their firmware versions to CVETodo. Device addresses and credentials
-# live in a separate hosts file (one line per device) -- see the README for
-# the format. Keep that file chmod 600; it holds credentials.
+# live in a cvetodo_snmp_hosts.txt file in the SAME directory as this config
+# file (one line per device) -- see the README for the format. Keep that file
+# chmod 600; it holds credentials. Set hosts_file: only to use another path.
 #snmp:
 #  enabled: true
-#  hosts_file: "%s"
 #  port: 161            # default port; per-line port= overrides
 #  timeout: "5s"        # per SNMP request
 #  retries: 1
 #  max_concurrent: 8    # devices polled in parallel
-`, apiKey, teamID, getHostname(), getDefaultDataDir(), getDefaultSNMPHostsFile())
+`, apiKey, teamID, getHostname(), getDefaultDataDir())
 
 	// Write config file
 	if err := os.WriteFile(configPath, []byte(defaultConfig), 0600); err != nil {
@@ -371,12 +385,6 @@ func getHomeDir() string {
 		return "."
 	}
 	return home
-}
-
-// getDefaultSNMPHostsFile returns the default SNMP hosts file path
-func getDefaultSNMPHostsFile() string {
-	path := filepath.Join(getHomeDir(), "cvetodo_snmp_hosts.txt")
-	return strings.ReplaceAll(path, "\\", "/")
 }
 
 // expandHome expands a leading ~/ to the user's home directory

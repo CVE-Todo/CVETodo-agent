@@ -304,21 +304,20 @@ Add to `~/.cvetodo-agent.yaml` (or the machine-wide config for services):
 ```yaml
 snmp:
   enabled: true
-  hosts_file: "~/cvetodo_snmp_hosts.txt"  # device list, see below
   port: 161            # default; per-line port= overrides
   timeout: "5s"        # per SNMP request
   retries: 1
   max_concurrent: 8    # devices polled in parallel
 ```
 
+The device list lives in `cvetodo_snmp_hosts.txt` **in the same directory as
+the configuration file** — for a service install that's
+`C:\ProgramData\cvetodo-agent\` on Windows or `/etc/cvetodo-agent/` on
+Linux/macOS, and `~` for interactive use. Set `hosts_file: "<path>"` only if
+you want it somewhere else.
+
 The poll runs on the same schedule as the package scan (`agent.scan_interval`,
 daily by default).
-
-When the agent runs as a system service, use an **absolute** `hosts_file`
-path — `~` resolves to the service account's profile (LocalSystem/root), not
-yours. Good machine-wide locations next to the service config:
-`C:\ProgramData\cvetodo-agent\cvetodo_snmp_hosts.txt` on Windows,
-`/etc/cvetodo-agent/cvetodo_snmp_hosts.txt` on Linux/macOS.
 
 ### The hosts file
 

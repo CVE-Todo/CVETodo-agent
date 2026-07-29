@@ -280,14 +280,21 @@ var statusConfigCmd = &cobra.Command{
 	Short: "Check configuration status",
 	Long:  "Check if configuration file exists and validate configuration",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		configPath := config.GetConfigPath()
+		// The path actually loaded, not the default home-dir location —
+		// service installs read a machine-wide file (ProgramData /
+		// /etc/cvetodo-agent) and reporting the home path here sent users
+		// looking for a file that does not exist.
+		configPath := config.FoundConfigPath()
 
 		fmt.Printf("Configuration Status\n")
 		fmt.Printf("===================\n\n")
 
 		// Check if config file exists
-		if config.ConfigExists() {
+		if configPath != "" {
 			fmt.Printf("✓ Config file exists: %s\n", configPath)
+			if configPath != config.GetConfigPath() {
+				fmt.Printf("  (machine-wide service configuration; editing it needs an elevated/root editor)\n")
+			}
 
 			// Try to load and validate configuration
 			cfg, err := config.Load()
@@ -309,7 +316,7 @@ var statusConfigCmd = &cobra.Command{
 				fmt.Printf("  - SNMP Polling: disabled\n")
 			}
 		} else {
-			fmt.Printf("✗ Config file not found: %s\n", configPath)
+			fmt.Printf("✗ Config file not found: %s\n", config.GetConfigPath())
 			fmt.Printf("\nTo create a configuration file, run:\n")
 			fmt.Printf("  cvetodo-agent config init\n")
 		}

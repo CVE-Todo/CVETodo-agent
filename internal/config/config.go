@@ -398,12 +398,21 @@ func getDefaultDataDir() string {
 
 // ConfigExists checks if the configuration file exists in any search path
 func ConfigExists() bool {
+	return FoundConfigPath() != ""
+}
+
+// FoundConfigPath returns the configuration file the agent will actually
+// load — the first match in search-path order — or "" when none exists.
+// This can differ from GetConfigPath(): service installs use a machine-wide
+// location (ProgramData / /etc/cvetodo-agent), not the user's home.
+func FoundConfigPath() string {
 	for _, dir := range getSearchPaths() {
-		if _, err := os.Stat(filepath.Join(dir, ".cvetodo-agent.yaml")); err == nil {
-			return true
+		p := filepath.Join(dir, ".cvetodo-agent.yaml")
+		if _, err := os.Stat(p); err == nil {
+			return p
 		}
 	}
-	return false
+	return ""
 }
 
 // GetConfigPath returns the expected configuration file path

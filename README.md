@@ -314,6 +314,12 @@ snmp:
 The poll runs on the same schedule as the package scan (`agent.scan_interval`,
 daily by default).
 
+When the agent runs as a system service, use an **absolute** `hosts_file`
+path — `~` resolves to the service account's profile (LocalSystem/root), not
+yours. Good machine-wide locations next to the service config:
+`C:\ProgramData\cvetodo-agent\cvetodo_snmp_hosts.txt` on Windows,
+`/etc/cvetodo-agent/cvetodo_snmp_hosts.txt` on Linux/macOS.
+
 ### The hosts file
 
 One device per line: an IP address or hostname followed by `key=value`

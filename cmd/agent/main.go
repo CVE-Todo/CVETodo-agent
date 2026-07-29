@@ -10,6 +10,7 @@ import (
 	"github.com/CVE-Todo/CVETodo-agent/internal/logger"
 	svc "github.com/CVE-Todo/CVETodo-agent/internal/service"
 	"github.com/CVE-Todo/CVETodo-agent/internal/snmp"
+	"github.com/CVE-Todo/CVETodo-agent/internal/updater"
 	"github.com/spf13/cobra"
 )
 
@@ -85,6 +86,24 @@ var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Configuration management",
 	Long:  "Manage agent configuration",
+}
+
+var upgradeCmd = &cobra.Command{
+	Use:   "upgrade",
+	Short: "Upgrade the agent to the latest release",
+	Long: `Download the latest release from GitHub, verify its checksum, replace
+this executable in place, and restart the background service if it was
+running. Requires the same privileges the binary was installed with
+(administrator/root for the standard install locations).
+
+Use --check to only report whether an upgrade is available.`,
+	Args:         cobra.NoArgs,
+	SilenceUsage: true, // a failed download/replace is not a usage error
+	RunE: func(cmd *cobra.Command, args []string) error {
+		checkOnly, _ := cmd.Flags().GetBool("check")
+		force, _ := cmd.Flags().GetBool("force")
+		return updater.Upgrade(version, checkOnly, force)
+	},
 }
 
 var snmpCmd = &cobra.Command{
@@ -309,7 +328,7 @@ func maskString(s string) string {
 
 func init() {
 	// Add subcommands
-	rootCmd.AddCommand(runCmd, scanCmd, configCmd, serviceCmd, snmpCmd)
+	rootCmd.AddCommand(runCmd, scanCmd, configCmd, serviceCmd, snmpCmd, upgradeCmd)
 	configCmd.AddCommand(initConfigCmd, statusConfigCmd)
 	serviceCmd.AddCommand(serviceInstallCmd, serviceUninstallCmd, serviceStartCmd, serviceStopCmd, serviceStatusCmd, serviceRunCmd)
 	snmpCmd.AddCommand(snmpTestCmd)
@@ -317,6 +336,8 @@ func init() {
 	// Command-specific flags
 	initConfigCmd.Flags().Bool("force", false, "Force overwrite existing configuration file")
 	snmpTestCmd.Flags().String("timeout", "", "per-request timeout override (e.g. 10s)")
+	upgradeCmd.Flags().Bool("check", false, "only check whether an upgrade is available")
+	upgradeCmd.Flags().Bool("force", false, "reinstall even when already on the latest version")
 
 	// Global flags
 	rootCmd.PersistentFlags().StringP("config", "c", "", "config file (default is $HOME/.cvetodo-agent.yaml)")

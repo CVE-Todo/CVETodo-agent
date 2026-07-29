@@ -46,6 +46,28 @@ Non-interactive install:
 curl -fsSL https://raw.githubusercontent.com/CVE-Todo/CVETodo-agent/main/install.sh | sudo CVETODO_API_KEY=your-key CVETODO_TEAM_ID=your-team bash
 ```
 
+### Upgrading
+
+From v1.3.1 the agent upgrades itself:
+
+```bash
+sudo cvetodo-agent upgrade          # Linux/macOS
+```
+```powershell
+cvetodo-agent upgrade               # Windows, elevated PowerShell
+```
+
+This downloads the latest release, verifies its checksum, replaces the
+binary in place, and restarts the background service if it was running.
+Configuration is untouched. `cvetodo-agent upgrade --check` only reports
+whether a newer release exists.
+
+On older versions (≤ v1.3.0) that lack the `upgrade` command, re-run the
+install script instead. Note: on those versions the installer replaces the
+binary but then errors with "service cvetodo-agent already exists" — the
+upgrade has still worked; just run `cvetodo-agent service start` (elevated)
+to finish.
+
 ### Turning the agent off
 
 The agent scans daily by default. You can turn it off at any time:

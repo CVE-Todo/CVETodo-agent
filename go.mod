@@ -1,19 +1,19 @@
 module github.com/CVE-Todo/CVETodo-agent
 
-go 1.25.0
+go 1.26.0
 
 require (
+	github.com/gosnmp/gosnmp v1.44.0
 	github.com/kardianos/service v1.3.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	golang.org/x/sys v0.47.0
+	golang.org/x/sys v0.48.0
 )
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
-	github.com/gosnmp/gosnmp v1.44.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
